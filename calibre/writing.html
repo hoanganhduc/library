@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Calibre Library: Writing - 2025-05-13</title>
+<style>
+body { font-family: Arial, sans-serif; margin: 40px; }
+.item { margin-bottom: 30px; border-bottom: 1px solid #ccc; padding-bottom: 20px; }
+.item-number { font-weight: bold; color: #7f8c8d; margin-bottom: 5px; }
+h1 { color: #2c3e50; }
+h2 { color: #3498db; }
+.notice { font-style: italic; background-color: #f8f9fa; padding: 10px; border-left: 3px solid #3498db; margin-bottom: 20px; }
+.coffee-button { position: absolute; top: 20px; right: 20px; }
+.coffee-button img { height: 40px; border: none; }
+.search-container { margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; }
+#searchInput { width: 300px; padding: 8px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; }
+#searchBtn { padding: 8px 15px; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px; }
+#searchBtn:hover { background-color: #2980b9; }
+#searchCount { margin-left: 15px; font-style: italic; }
+.highlight { background-color: yellow; font-weight: bold; }
+.hidden { display: none; }
+</style>
+</head>
+<body>
+<div class='coffee-button'>
+<a href='https://www.buymeacoffee.com/hoanganhduc' target='_blank'>
+<img src='https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png' alt='Buy Me A Coffee'>
+</a>
+</div>
+<h1>Calibre Library: Writing - 2025-05-13</h1>
+<div class='notice'>This page is generated from a Calibre collection of <a href='https://hoanganhduc.github.io/'>Duc A. Hoang</a> using the <a href='list-calibre-collection.py'>list-calibre-collection.py</a> script. The listed materials have been gathered from various sources and they are used for personal reference only. Access to these materials via Google Drive is restricted due to possible copyright issues.</div>
+<div class='search-container'>
+<input type='text' id='searchInput' placeholder='Search within this page...' />
+<button id='searchBtn'>Search</button>
+<span id='searchCount'></span>
+</div>
+<div class='item-number'>Book #1</div>
+<div class='item'><h2>On Writing Well, 30th Anniversary Edition: An Informal Guide to Writing Nonfiction</h2>
+<p><strong>Authors:</strong> William Zinsser</p>
+<p><strong>Publisher:</strong> Harper Collins</p>
+<p><strong>Date:</strong> 2012-09-10 17:00:00+00:00</p>
+<p><strong>Attachments:</strong></p>
+<ul>
+<li>Calibre Library/William Zinsser/On Writing Well, 30th Anniversary E (6945)/On Writing Well, 30th Anniversa - William Zinsser.mobi - <a href='https://drive.google.com/file/d/1fcrYDsWnDrisGezMZ9TyaJrPBNUNdrUf/view?usp=drivesdk' target='_blank'>View on Google Drive</a></li>
+</ul>
+</div>
+<div class='item-number'>Book #2</div>
+<div class='item'><h2>Writing Tools</h2>
+<p><strong>Authors:</strong> Roy Peter Clark</p>
+<p><strong>Publisher:</strong> Little, Brown and Company</p>
+<p><strong>Date:</strong> 2008-01-10 00:00:00+00:00</p>
+<p><strong>Attachments:</strong></p>
+<ul>
+<li>Calibre Library/Roy Peter Clark/Writing Tools (6944)/Writing Tools - Roy Peter Clark.mobi - <a href='https://drive.google.com/file/d/15UJ7zyblRet64c9RpXgJZhjQfSTpvgOr/view?usp=drivesdk' target='_blank'>View on Google Drive</a></li>
+</ul>
+</div>
+<div class='item-number'>Book #3</div>
+<div class='item'><h2>Scientific Paper Writing: A Survival Guide</h2>
+<p><strong>Authors:</strong> Bodil Holst</p>
+<p><strong>Publisher:</strong> CreateSpace Independent Publishing Platform</p>
+<p><strong>Date:</strong> 2015-05-14 17:00:00+00:00</p>
+<p><strong>Attachments:</strong></p>
+<ul>
+<li>Calibre Library/Bodil Holst/Scientific Paper Writing_ A Survival Guide (6911)/Scientific Paper Writing_ A Survival Guide - Bodil Holst.azw3 - <a href='https://drive.google.com/file/d/1qEWfH3JYBcgXw8r0NV69ZM9JIf_qnvQR/view?usp=drivesdk' target='_blank'>View on Google Drive</a></li>
+</ul>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const searchInput = document.getElementById('searchInput');
+  const searchBtn = document.getElementById('searchBtn');
+  const searchCount = document.getElementById('searchCount');
+  const items = document.querySelectorAll('.item');
+
+  function performSearch() {
+    const searchTerm = searchInput.value.toLowerCase().trim();
+    if (searchTerm === '') {
+      items.forEach(item => {
+        item.classList.remove('hidden');
+        const highlighted = item.querySelectorAll('.highlight');
+        highlighted.forEach(el => {
+          const parent = el.parentNode;
+          parent.replaceChild(document.createTextNode(el.textContent), el);
+          parent.normalize();
+        });
+      });
+      searchCount.textContent = '';
+      return;
+    }
+    let matchCount = 0;
+    items.forEach(item => {
+      const text = item.textContent.toLowerCase();
+      const hasMatch = text.includes(searchTerm);
+      if (hasMatch) {
+        item.classList.remove('hidden');
+        matchCount++;
+        highlightText(item, searchTerm);
+      } else {
+        item.classList.add('hidden');
+      }
+    });
+    searchCount.textContent = `Found ${matchCount} matching items`;
+  }
+  function highlightText(element, searchTerm) {
+    const highlighted = element.querySelectorAll('.highlight');
+    highlighted.forEach(el => {
+      const parent = el.parentNode;
+      parent.replaceChild(document.createTextNode(el.textContent), el);
+      parent.normalize();
+    });
+    function processNode(node) {
+      if (node.nodeType === 3) {
+        const text = node.nodeValue.toLowerCase();
+        const index = text.indexOf(searchTerm.toLowerCase());
+        if (index >= 0) {
+          const before = node.nodeValue.substring(0, index);
+          const match = node.nodeValue.substring(index, index + searchTerm.length);
+          const after = node.nodeValue.substring(index + searchTerm.length);
+          const beforeNode = document.createTextNode(before);
+          const matchNode = document.createElement('span');
+          matchNode.classList.add('highlight');
+          matchNode.textContent = match;
+          const afterNode = document.createTextNode(after);
+          const parent = node.parentNode;
+          parent.replaceChild(afterNode, node);
+          parent.insertBefore(matchNode, afterNode);
+          parent.insertBefore(beforeNode, matchNode);
+          processNode(afterNode);
+        }
+      } else if (node.nodeType === 1 && node.childNodes && !/(script|style)/i.test(node.tagName)) {
+        Array.from(node.childNodes).forEach(child => processNode(child));
+      }
+    }
+    processNode(element);
+  }
+  searchBtn.addEventListener('click', performSearch);
+  searchInput.addEventListener('keyup', function(event) {
+    if (event.key === 'Enter') {
+      performSearch();
+    }
+  });
+});
+</script>
+</body>
+</html>

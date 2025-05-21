@@ -1,0 +1,73 @@
+name: Build HTML
+on: 
+  # push:
+  #   branches:
+  #     - main
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 0' # Every Sunday at midnight
+permissions:
+  contents: write
+jobs:
+  cron:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Git repository
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Build HTML
+        run: |
+          GDRIVE_AUTH=$(echo "${{ secrets.GDRIVE_SERVICE_ACCOUNT }}" | base64 --decode | jq)
+
+          ZOTERO_COPYRIGHT_NOTICE="This page is generated from a Zotero collection of <a href='https://hoanganhduc.github.io/'>Duc A. Hoang</a> using the <a href='list-zotero-collection.py'>list-zotero-collection.py</a> script. The listed materials have been gathered from various sources and they are used for personal reference only. Access to these materials via Google Drive is restricted due to possible copyright issues."
+
+          CALIBRE_COPYRIGHT_NOTICE="This page is generated from a Calibre collection of <a href='https://hoanganhduc.github.io/'>Duc A. Hoang</a> using the <a href='list-calibre-collection.py'>list-calibre-collection.py</a> script. The listed materials have been gathered from various sources and they are used for personal reference only. Access to these materials via Google Drive is restricted due to possible copyright issues."
+            
+          # Define Zotero collections and output files
+          ZOTERO_COLLECTIONS=("${{ secrets.ZOTERO_COLLECTION_BOOK }}" "${{ secrets.ZOTERO_COLLECTION_RECONF }}" "${{ secrets.ZOTERO_COLLECTION_WRITING }}" "${{ secrets.ZOTERO_COLLECTION_INSPIRATION }}")
+          ZOTERO_OUTPUT_FILES=("book.html" "reconfiguration.html" "writing.html" "inspiration.html")
+          
+          # Get array length and loop through all collections
+          COLLECTION_COUNT=${#ZOTERO_COLLECTIONS[@]}
+          cd zotero
+          for ((i=0; i<$COLLECTION_COUNT; i++)); do
+            python3 list-zotero-collection.py --api-key ${{ secrets.ZOTERO_API_KEY }} --library-id ${{ secrets.ZOTERO_LIBRARY_ID }} --collection "${ZOTERO_COLLECTIONS[$i]}" --output-format html --output-file "${ZOTERO_OUTPUT_FILES[$i]}" --service-account-file "${GDRIVE_AUTH}" --notice "${ZOTERO_COPYRIGHT_NOTICE}"
+          done
+          cd ..
+
+          cd calibre
+          # Define Calibre collections and output files
+          CALIBRE_COLLECTIONS=("Mathematics" "Computer Science" "Writing" "History" "Truyện dài" "Kiếm hiệp" "Tiên hiệp")
+          CALIBRE_OUTPUT_FILES=("mathematics.html" "computer-science.html" "writing.html" "history.html" "truyen-dai.html" "kiem-hiep.html" "tien-hiep.html")
+
+          # Get array length and loop through all collections
+          COLLECTION_COUNT=${#CALIBRE_COLLECTIONS[@]}
+          for ((i=0; i<$COLLECTION_COUNT; i++)); do
+            python3 list-calibre-collection.py --tag "${CALIBRE_COLLECTIONS[$i]}" --output-format html --output-file "${CALIBRE_OUTPUT_FILES[$i]}" --service-account-file "${GDRIVE_AUTH}" --notice "${CALIBRE_COPYRIGHT_NOTICE}"
+          done
+
+
+      - name: Import GPG key
+        id: import-gpg
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+          git_user_signingkey: true
+          git_commit_gpgsign: true
+      - name: Commit and push changes
+        run: |
+          git config --global user.email "${{ steps.import-gpg.outputs.email }}"
+          git config --global user.name "${{ steps.import-gpg.outputs.name }}"
+          NOW=$(date)
+          git add --all .
+          git commit -S -m "Updated via Github Action @ ${NOW}" || echo "No changes to commit"
+          git push

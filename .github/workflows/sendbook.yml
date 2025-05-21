@@ -1,0 +1,52 @@
+name: Send Book
+on: 
+  # push:
+  #   branches:
+  #     - master
+  workflow_dispatch:
+  schedule:
+    - cron: '15 0 * * 0' # Every Sunday at 00:15
+permissions:
+  contents: write
+jobs:
+  cron:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Git repository
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Send book via email
+        run: |
+          GDRIVE_AUTH=$(echo "${{ secrets.GDRIVE_SERVICE_ACCOUNT }}" | base64 --decode | jq)
+
+          cd zotero
+          python3 list-zotero-collection.py --api-key ${{ secrets.ZOTERO_API_KEY }} --library-id ${{ secrets.ZOTERO_LIBRARY_ID }} --service-account-file "${GDRIVE_AUTH}" --send-email --random --recipient "${{ secrets.RECIPIENT_EMAIL1 }}" --gmail-username "${{ secrets.GMAIL_USER }}" --gmail-app-password "${{ secrets.GMAIL_APP_PASSWD }}"
+          cd ..
+
+          cd calibre
+          python3 list-calibre-collection.py --service-account-file "${GDRIVE_AUTH}" --send-email --random --recipient "${{ secrets.RECIPIENT_EMAIL1 }}" --gmail-username "${{ secrets.GMAIL_USER }}" --gmail-app-password "${{ secrets.GMAIL_APP_PASSWD }}" 
+
+      - name: Import GPG key
+        id: import-gpg
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+          git_user_signingkey: true
+          git_commit_gpgsign: true
+      - name: Commit and push changes
+        run: |
+          git config --global user.email "${{ steps.import-gpg.outputs.email }}"
+          git config --global user.name "${{ steps.import-gpg.outputs.name }}"
+          NOW=$(date)
+          git add --all .
+          git commit -S -m "Book sent via Github Action @ ${NOW}" || echo "No changes to commit"
+          git push
