@@ -1758,15 +1758,16 @@ def send_email_with_attachments(username, app_password, to_emails, subject, body
         return False
 
 def send_paper_by_email(zot, google_creds, title_query, gmail_username, gmail_app_password, recipients, 
-                        subject=None, body=None, delete_after_send=True, verbose=False, max_papers=5):
+                        subject=None, body=None, delete_after_send=True, verbose=False, max_papers=5,
+                        random_paper=False):
     """
-    Search for papers by title(s), download attachments from Google Drive, and email them.
+    Search for papers by title(s), or select a random paper, download attachments from Google Drive, and email them.
     If total file size exceeds 20MB, sends Google Drive links instead of attachments.
     
     Args:
         zot: Zotero API client instance
         google_creds: Google API credentials object
-        title_query (str or list): Title(s) or partial title(s) of the paper(s)
+        title_query (str or list): Title(s) or partial title(s) of the paper(s), ignored if random_paper is True
         gmail_username (str): Gmail username/email
         gmail_app_password (str): Gmail app password
         recipients (list or str): Email address(es) to send to
@@ -1775,36 +1776,66 @@ def send_paper_by_email(zot, google_creds, title_query, gmail_username, gmail_ap
         delete_after_send (bool): Whether to delete downloaded files after sending
         verbose (bool): Whether to display progress messages
         max_papers (int): Maximum number of papers to include
+        random_paper (bool): If True, select a random journal article instead of searching
         
     Returns:
         bool: True if any papers were found and email sent successfully
     """
-    # Convert inputs to lists
-    if isinstance(title_query, str):
-        title_queries = [title_query]
-    else:
-        title_queries = title_query
-        
+    # Convert inputs to lists for recipients
     if isinstance(recipients, str):
         recipient_list = [r.strip() for r in recipients.split(',')]
     else:
         recipient_list = recipients
     
-    if verbose:
-        query_desc = ", ".join([f"'{q}'" for q in title_queries])
-        print_progress(f"Searching for papers: {query_desc}...", verbose)
+    # Get papers based on mode (search by title or random)
+    papers = []
     
-    # Find the papers in Zotero
-    papers = find_papers_by_title(zot, title_queries, verbose=verbose)
-    if not papers:
-        print_progress(f"No papers found matching titles", verbose, file=sys.stderr)
-        return False
-    
-    # Limit number of papers
-    if len(papers) > max_papers:
+    if random_paper:
         if verbose:
-            print_progress(f"Found {len(papers)} papers, limiting to {max_papers}", verbose)
-        papers = papers[:max_papers]
+            print_progress("Selecting a random journal article...", verbose)
+        
+        # Get a list of journal articles
+        try:
+            # Get all journal articles
+            all_papers = get_items(zot, item_type="journalArticle", verbose=verbose)
+            
+            # Make sure we have papers
+            if all_papers:
+                # Select one randomly
+                paper = random.choice(all_papers)
+                papers = [paper]
+                
+                if verbose:
+                    print_progress(f"Selected random paper: '{paper['data'].get('title', 'Unknown')}'", verbose)
+            else:
+                print_progress("No journal articles found in the library", verbose, file=sys.stderr)
+                return False
+                
+        except Exception as e:
+            print_progress(f"Error selecting random paper: {e}", verbose, file=sys.stderr)
+            return False
+    else:
+        # Convert title query to lists if needed
+        if isinstance(title_query, str):
+            title_queries = [title_query]
+        else:
+            title_queries = title_query
+        
+        if verbose:
+            query_desc = ", ".join([f"'{q}'" for q in title_queries])
+            print_progress(f"Searching for papers: {query_desc}...", verbose)
+        
+        # Find the papers in Zotero
+        papers = find_papers_by_title(zot, title_queries, verbose=verbose)
+        if not papers:
+            print_progress(f"No papers found matching titles", verbose, file=sys.stderr)
+            return False
+        
+        # Limit number of papers
+        if len(papers) > max_papers:
+            if verbose:
+                print_progress(f"Found {len(papers)} papers, limiting to {max_papers}", verbose)
+            papers = papers[:max_papers]
     
     if not google_creds:
         print_progress("No Google credentials provided", verbose, file=sys.stderr)
@@ -1902,7 +1933,9 @@ def send_paper_by_email(zot, google_creds, title_query, gmail_username, gmail_ap
             subject = f"Papers: {paper_info_list[0]['title']} and {len(paper_info_list)-1} more"
     
     if not body:
-        if exceed_size_limit:
+        if random_paper:
+            body_lines = ["Here is a randomly selected journal article:"]
+        elif exceed_size_limit:
             body_lines = ["Here are links to the requested paper(s) (exceeds 20MB email limit):"]
         else:
             body_lines = ["Here are the requested paper(s):"]
@@ -1995,6 +2028,8 @@ def parse_arguments():
     # Email functionality
     email_group = parser.add_argument_group('Email options', 'Options for sending papers by email')
     email_group.add_argument('-e', '--send-email', action='store_true', help='Send papers by email (requires --search)')
+    email_group.add_argument('-r', '--random', action='store_true', 
+                           help='Select and email a random journal article')
     email_group.add_argument('-u', '--gmail-username', help='Gmail username/email for sending papers')
     email_group.add_argument('-p', '--gmail-app-password', help='Gmail app password for sending papers')
     email_group.add_argument('-R', '--recipient', action='append', dest='recipients',
@@ -2037,8 +2072,8 @@ def main():
         
         # Handle email sending if requested
         if args.send_email:
-            if not args.searches:
-                print_progress("Error: --search parameter is required", args.verbose, file=sys.stderr)
+            if not args.random and not args.searches:
+                print_progress("Error: Either --search parameter or --random flag is required", args.verbose, file=sys.stderr)
                 sys.exit(1)
                 
             if not args.gmail_username or not args.gmail_app_password or not args.recipients:
@@ -2048,14 +2083,15 @@ def main():
             result = send_paper_by_email(
                 zot,
                 google_creds,
-                args.searches,
+                args.searches if not args.random else None,
                 args.gmail_username,
                 args.gmail_app_password,
                 args.recipients,
                 args.email_subject,
                 args.email_body,
                 not args.keep_files,
-                args.verbose
+                args.verbose,
+                random_paper=args.random
             )
             
             if result:
