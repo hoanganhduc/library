@@ -244,11 +244,34 @@ def connect_to_calibre_db(library_path, google_creds=None, verbose=False):
             raise FileNotFoundError(f"Could not find or download Calibre database: {e}")
     raise FileNotFoundError(f"Calibre database not found at {db_path} and not found in Google Drive.")
 
+def _table_exists(conn, table_name):
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=? LIMIT 1",
+        (table_name,)
+    )
+    return cursor.fetchone() is not None
+
+def _table_has_column(conn, table_name, column_name):
+    cursor = conn.cursor()
+    cursor.execute(f"PRAGMA table_info({table_name})")
+    return any(row[1] == column_name for row in cursor.fetchall())
+
 def list_calibre_books(conn, categories=None):
     cursor = conn.cursor()
+    identifiers_table_exists = _table_exists(conn, "identifiers")
+    if _table_has_column(conn, "books", "isbn"):
+        isbn_expr = "books.isbn"
+    elif identifiers_table_exists:
+        isbn_expr = ("(SELECT val FROM identifiers "
+                     "WHERE identifiers.book = books.id "
+                     "AND identifiers.type = 'isbn' "
+                     "LIMIT 1) AS isbn")
+    else:
+        isbn_expr = "NULL AS isbn"
     base_query = """
         SELECT 
-            books.id, books.title, books.path, books.pubdate, books.isbn, 
+            books.id, books.title, books.path, books.pubdate, {isbn_expr}, 
             books.series_index AS series_index,
             s.name as series,
             p.name as publisher,
@@ -259,6 +282,7 @@ def list_calibre_books(conn, categories=None):
         LEFT JOIN books_publishers_link bpl ON books.id = bpl.book
         LEFT JOIN publishers p ON bpl.publisher = p.id
     """
+    """.format(isbn_expr=isbn_expr)
     params = []
     if categories:
         # Join with tags table to filter by categories (tags)
@@ -288,6 +312,20 @@ def list_calibre_books(conn, categories=None):
             SELECT format, name FROM data WHERE book = ?
         """, (book_id,))
         formats = [{'format': row[0], 'name': row[1]} for row in cursor.fetchall()]
+
+        identifiers = {"isbn": [], "asin": [], "doi": []}
+        if identifiers_table_exists:
+            cursor.execute("""
+                SELECT type, val FROM identifiers
+                WHERE book = ? AND type IN ('isbn', 'asin', 'doi')
+                ORDER BY id
+            """, (book_id,))
+            for ident_type, ident_val in cursor.fetchall():
+                if ident_val and ident_type in identifiers:
+                    identifiers[ident_type].append(ident_val)
+        identifiers = {k: "; ".join(v) for k, v in identifiers.items() if v}
+        if not isbn and identifiers.get("isbn"):
+            isbn = identifiers["isbn"]
         book_list.append({
             'id': book_id,
             'title': title,
@@ -295,6 +333,8 @@ def list_calibre_books(conn, categories=None):
             'path': path,
             'pubdate': pubdate,
             'isbn': isbn,
+            'asin': identifiers.get('asin'),
+            'doi': identifiers.get('doi'),
             'series': series,
             'series_index': series_index,
             'publisher': publisher,
@@ -366,6 +406,10 @@ def format_book_text(book, library_path, google_creds=None, verbose=False):
         output.append(f"Date: {book['pubdate']}")
     if book['isbn']:
         output.append(f"ISBN: {book['isbn']}")
+    if book.get('asin'):
+        output.append(f"ASIN: {book['asin']}")
+    if book.get('doi'):
+        output.append(f"DOI: {book['doi']}")
     attachments = get_attachment_paths(book, library_path, google_creds, verbose)
     if attachments:
         output.append("Attachments:")
@@ -391,6 +435,10 @@ def format_book_html(book, library_path, google_creds=None, verbose=False):
         html_parts.append(f"<p><strong>Date:</strong> {html.escape(str(book['pubdate']))}</p>")
     if book['isbn']:
         html_parts.append(f"<p><strong>ISBN:</strong> {html.escape(book['isbn'])}</p>")
+    if book.get('asin'):
+        html_parts.append(f"<p><strong>ASIN:</strong> {html.escape(book['asin'])}</p>")
+    if book.get('doi'):
+        html_parts.append(f"<p><strong>DOI:</strong> {html.escape(book['doi'])}</p>")
     attachments = get_attachment_paths(book, library_path, google_creds, verbose)
     if attachments:
         html_parts.append("<p><strong>Attachments:</strong></p>")
