@@ -281,7 +281,6 @@ def list_calibre_books(conn, categories=None):
         LEFT JOIN series s ON bsl.series = s.id
         LEFT JOIN books_publishers_link bpl ON books.id = bpl.book
         LEFT JOIN publishers p ON bpl.publisher = p.id
-    """
     """.format(isbn_expr=isbn_expr)
     params = []
     if categories:
